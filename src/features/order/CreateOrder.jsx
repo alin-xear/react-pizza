@@ -1,26 +1,34 @@
 import { Form, redirect, useActionData, useNavigation } from 'react-router-dom';
 import { createOrder } from '../../services/apiRestaurant';
 import Button from '../../ui/Button';
-import { useSelector } from 'react-redux';
-import { getUser } from '../user/userSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchAddress, getUser } from '../user/userSlice';
 import { clearCart, getCart, getTotalCartPrice } from '../cart/cartSlice';
 import EmptyCart from '../cart/EmptyCart';
 import store from '../../store';
 import { formatCurrency } from '../../utils/helpers';
 import { useState } from 'react';
+import Loader from '../../ui/Loader';
 
 // https://uibakery.io/regex-library/phone-number
 const isValidPhone = (str) =>
-  /^\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}$/.test(
-    str,
-  );
+  /^\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}$/.test(str);
 
 function CreateOrder() {
   const [withPriority, setWithPriority] = useState(false);
   const navigation = useNavigation();
   const isSubmitting = navigation.state === 'submitting';
-  const username = useSelector(getUser);
+
+  const {
+    username,
+    status: addressStatus,
+    position,
+    address,
+    error: errorAddress,
+  } = useSelector((state) => state.user);
+  const isLoadingAddress = addressStatus === 'loading';
   const formErrors = useActionData();
+  const dispatch = useDispatch();
 
   const cart = useSelector(getCart);
   const totalCartPrice = useSelector(getTotalCartPrice);
@@ -57,16 +65,36 @@ function CreateOrder() {
           </div>
         </div>
 
-        <div className="sm:item-center mb-5 flex flex-col gap-2 sm:flex-row">
+        <div className="sm:item-center relative mb-5 flex flex-col gap-2 sm:flex-row">
           <label className="sm:basis-40">Address</label>
           <div className="grow">
             <input
               type="text"
               name="address"
-              required
               className="input w-full"
+              disabled={isLoadingAddress}
+              defaultValue={address}
+              required
             />
+            {addressStatus === 'error' && (
+              <p className="tex-red-700 mt-2 rounded-md bg-red-100 p-2 text-xs">{errorAddress}</p>
+            )}
           </div>
+
+          {!position.latitude && !position.longitude && (
+            <span className="z-1 absolute right-[4px] top-[34px] sm:top-[4.5px]">
+              <Button
+                type="small"
+                disabled={isLoadingAddress}
+                onClick={(e) => {
+                  e.preventDefault();
+                  dispatch(fetchAddress());
+                }}
+              >
+                Get position
+              </Button>
+            </span>
+          )}
         </div>
 
         <div className="mb-12 flex items-center gap-5">
@@ -85,10 +113,17 @@ function CreateOrder() {
 
         <div>
           <input type="hidden" name="cart" value={JSON.stringify(cart)} />
-          <Button type="primary" disabled={isSubmitting}>
-            {isSubmitting
-              ? 'Placing order...'
-              : `Order now for ${formatCurrency(totalPrice)}`}
+          <input
+            type="hidden"
+            name="position"
+            value={
+              position.longitude && position.latitude
+                ? `${position.latitude}, ${position.longitude}`
+                : ''
+            }
+          />
+          <Button type="primary" disabled={isSubmitting || isLoadingAddress}>
+            {isSubmitting ? 'Placing order...' : `Order now for ${formatCurrency(totalPrice)}`}
           </Button>
         </div>
       </Form>
@@ -106,11 +141,12 @@ export async function action({ request }) {
     priority: data.priority === 'true',
   };
 
+  // console.log(order);
+
   // validation:START
   const errors = {};
   if (!isValidPhone(order.phone))
-    errors.phone =
-      'Please insert a correct phone number. We might need it to contact you.';
+    errors.phone = 'Please insert a correct phone number. We might need it to contact you.';
 
   if (Object.keys(errors).length > 0) return errors;
   // validation:END
