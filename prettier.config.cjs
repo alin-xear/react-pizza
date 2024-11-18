@@ -1,7 +1,7 @@
 const config = {
   singleQuote: true,
   plugins: ['prettier-plugin-tailwindcss'],
-  printWidth: 100,
+  max_line_length: 100,
 };
 
 module.exports = config;

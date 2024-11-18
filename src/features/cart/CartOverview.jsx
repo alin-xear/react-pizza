@@ -2,29 +2,30 @@ import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { getTotalCartPrice, getTotalCartQuantity } from './cartSlice';
 import { formatCurrency } from '../../utils/helpers';
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 
 function CartOverview() {
   const totalCartQuantity = useSelector(getTotalCartQuantity);
   const totalCartPrice = useSelector(getTotalCartPrice);
-  const ref = useRef(null);
 
+  // animation:START
+  const [isAnimating, setIsAnimating] = useState(false);
   useEffect(() => {
-    const targetElement = ref.current; // corresponding DOM node
-    if (targetElement) {
-      if (targetElement.classList.contains('stickyMenuAnimation'))
-        targetElement.classList.remove('stickyMenuAnimation');
-      setTimeout(function () {
-        targetElement.classList.add('stickyMenuAnimation');
-      }, 1);
-    }
+    setIsAnimating(true);
   }, [totalCartQuantity]);
+
+  const handleAnimationEnd = function (e) {
+    e.target.classList.remove('stickyMenuAnimation');
+    setIsAnimating(false);
+  };
+  // animation:END
 
   if (!totalCartQuantity) return null;
   return (
     <div
-      ref={ref}
-      className="flex items-center justify-between bg-stone-800 px-4 py-4 text-sm uppercase text-stone-200 sm:px-6 md:text-base"
+      id="test"
+      onAnimationEnd={handleAnimationEnd}
+      className={`${isAnimating ? 'stickyMenuAnimation' : ''} flex items-center justify-between bg-stone-800 px-4 py-4 text-sm uppercase text-stone-200 sm:px-6 md:text-base`}
     >
       <p className="space-x-4 font-semibold text-stone-300 sm:space-x-6">
         <span className="">{totalCartQuantity} pizzas</span>
